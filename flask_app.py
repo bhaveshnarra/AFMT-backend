@@ -3,12 +3,16 @@ from flask_cors import CORS
 from tool_backend import *
 
 app = flask.Flask(__name__)
-CORS(app)
+cors = CORS(app)
+app.config['CORS_HEADERS'] = 'Content-Type'
+
 @app.route("/")
+@cross_origin()
 def hello():
     return "<h1 style='color:blue'>Hello There!</h1>"
 
 @app.route('/', methods=['POST'])
+@cross_origin()
 def parse_request():
     data = flask.request.data
     # print(data)
