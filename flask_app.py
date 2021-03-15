@@ -1,5 +1,5 @@
 import flask
-from flask_cors import CORS
+from flask_cors import CORS, cross_origin
 from tool_backend import *
 
 app = flask.Flask(__name__)
