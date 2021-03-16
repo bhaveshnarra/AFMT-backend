@@ -1,15 +1,16 @@
 import flask
+from flask import Flask, request, render_template
 from flask_cors import CORS, cross_origin
 from tool_backend import *
 
-app = flask.Flask(__name__)
+app = flask.Flask(__name__,static_url_path='', static_folder='AFMT2.0',template_folder='AFMT2.0')
 cors = CORS(app)
 app.config['CORS_HEADERS'] = 'Content-Type'
 
 @app.route("/")
 @cross_origin()
 def hello():
-    return "<h1 style='color:blue'>Hello There!</h1>"
+    return render_template('index.html')
 
 @app.route('/', methods=['POST'])
 @cross_origin()
