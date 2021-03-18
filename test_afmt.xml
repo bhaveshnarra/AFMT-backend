@@ -1,0 +1,1151 @@
+<nta>
+	<declaration>// Place global declarations here.
+clock t;
+const int N_failNODES = 500;
+broadcast chan fail[N_failNODES];
+broadcast chan c;
+clock cost;
+int fails=0;
+int mfails=0;
+int afails=0;
+int dam=0;
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+const int N_NODES = 500; /* 0 Unused, 1-99 used for BEs and gates, 100 unused, 101-199 used for conditions of faults */
+const int N_INSPECTIONS = 500;
+const int N_REPLACEMENTS = 500;
+const int multiplier = 360;
+//broadcast chan fail[N_NODES];
+broadcast chan mal_inspect[N_NODES+1];
+broadcast chan activate[N_NODES+1];
+broadcast chan repair[N_NODES+1];
+broadcast chan insp_thres[N_INSPECTIONS + 1];
+broadcast chan repl[N_REPLACEMENTS + 1];
+broadcast chan repl_force[N_REPLACEMENTS + 1];
+double total_cost;
+double total_inspection_cost;
+double total_replacement_cost;
+double total_downtime;
+</declaration>
+	<template>
+		<name>BE_instantfail</name>
+		<parameter>int id,int w1, int w2,int possible, int detect_time,int repl_id,int d</parameter>
+		<declaration>clock downtime;
+clock x;</declaration>
+		<location id="id0" x="-85" y="-663">
+			<committed />
+		</location>
+		<location id="id1" x="68" y="-663">
+			<label kind="invariant" x="26" y="-646">downtime'==1</label>
+		</location>
+		<location id="id2" x="247" y="-663">
+			<label kind="invariant" x="247" y="-697">x&lt;=detect_time &amp;&amp; downtime'==1</label>
+		</location>
+		<location id="id3" x="315" y="-578">
+			<label kind="invariant" x="305" y="-561">downtime'==0</label>
+		</location>
+		<location id="id4" x="-263" y="-578">
+		</location>
+		<location id="id5" x="77" y="-536">
+		</location>
+		<location id="id6" x="213" y="-578">
+			<committed />
+		</location>
+		<location id="id7" x="77" y="-578">
+			<urgent />
+		</location>
+		<location id="id8" x="-153" y="-578">
+			<label kind="invariant" x="-187" y="-561">downtime'==0</label>
+			<urgent />
+		</location>
+		<branchpoint id="id9" x="-59" y="-578">
+		</branchpoint>
+		<init ref="id4" />
+		<transition>
+			<source ref="id0" />
+			<target ref="id8" />
+			<label kind="synchronisation" x="-119" y="-629">repair[id]!</label>
+			<label kind="assignment" x="-382" y="-655">total_downtime = total_downtime+downtime</label>
+		</transition>
+		<transition>
+			<source ref="id1" />
+			<target ref="id0" />
+			<label kind="synchronisation" x="-34" y="-689">repl[repl_id]?</label>
+		</transition>
+		<transition>
+			<source ref="id2" />
+			<target ref="id1" />
+			<label kind="guard" x="111" y="-663">x&gt;=detect_time</label>
+			<label kind="synchronisation" x="102" y="-689">repl_force[repl_id]!</label>
+		</transition>
+		<transition>
+			<source ref="id6" />
+			<target ref="id2" />
+			<label kind="guard" x="230" y="-629">possible==1</label>
+			<label kind="assignment" x="196" y="-629">x:=0</label>
+		</transition>
+		<transition>
+			<source ref="id6" />
+			<target ref="id3" />
+			<label kind="guard" x="221" y="-570">possible==0</label>
+		</transition>
+		<transition>
+			<source ref="id8" />
+			<target ref="id9" />
+		</transition>
+		<transition>
+			<source ref="id4" />
+			<target ref="id8" />
+			<label kind="synchronisation" x="-246" y="-612">activate[id]?</label>
+		</transition>
+		<transition>
+			<source ref="id9" />
+			<target ref="id5" />
+			<label kind="probability" x="-8" y="-553">w2</label>
+		</transition>
+		<transition>
+			<source ref="id7" />
+			<target ref="id6" />
+			<label kind="synchronisation" x="119" y="-604">fail[id]!</label>
+			<label kind="assignment" x="102" y="-578">fails=fails+1,
+dam=dam+d,mfails=mfails+1</label>
+		</transition>
+		<transition>
+			<source ref="id9" />
+			<target ref="id7" />
+			<label kind="probability" x="0" y="-604">w1</label>
+		</transition>
+	</template>
+	<template>
+		<name>BE_repair</name>
+		<parameter>int id, int w1, int w2, double lambda, int n_phases, int threshold_phase, int repl_id, int insp_id</parameter>
+		<declaration>int phase = 1;
+clock downtime;</declaration>
+		<location id="id10" x="1300" y="552">
+			<label kind="invariant" x="1258" y="518">downtime'==1</label>
+		</location>
+		<location id="id11" x="1011" y="552">
+			<committed />
+		</location>
+		<location id="id12" x="1300" y="756">
+			<committed />
+		</location>
+		<location id="id13" x="926" y="757">
+			<label kind="invariant" x="909" y="713">downtime'==0</label>
+			<label kind="exponentialrate" x="935" y="730">lambda * n_phases</label>
+		</location>
+		<location id="id14" x="731" y="552">
+			<name x="722" y="518">activated</name>
+			<committed />
+		</location>
+		<location id="id15" x="773" y="705">
+			<name x="739" y="713">undegradable</name>
+		</location>
+		<location id="id16" x="612" y="552">
+			<name x="602" y="518">start</name>
+		</location>
+		<branchpoint id="id17" x="833" y="646">
+		</branchpoint>
+		<init ref="id16" />
+		<transition>
+			<source ref="id15" />
+			<target ref="id14" />
+			<label kind="synchronisation" x="663" y="637">repl[repl_id]?</label>
+		</transition>
+		<transition>
+			<source ref="id11" />
+			<target ref="id14" />
+			<label kind="synchronisation" x="807" y="552">repair[id]!</label>
+			<label kind="assignment" x="790" y="492">phase:=1,
+total_downtime=total_downtime+downtime</label>
+		</transition>
+		<transition>
+			<source ref="id16" />
+			<target ref="id14" />
+			<label kind="synchronisation" x="637" y="510">activate[id]?</label>
+		</transition>
+		<transition>
+			<source ref="id17" />
+			<target ref="id13" />
+			<label kind="probability" x="867" y="663">w1</label>
+		</transition>
+		<transition>
+			<source ref="id17" />
+			<target ref="id15" />
+			<label kind="probability" x="790" y="646">w2</label>
+		</transition>
+		<transition>
+			<source ref="id14" />
+			<target ref="id17" />
+		</transition>
+		<transition>
+			<source ref="id13" />
+			<target ref="id13" />
+			<label kind="synchronisation" x="1019" y="782">repl[repl_id]?</label>
+			<label kind="assignment" x="1019" y="799">phase := 1</label>
+			<nail x="1019" y="808" />
+			<nail x="968" y="816" />
+		</transition>
+		<transition>
+			<source ref="id12" />
+			<target ref="id10" />
+			<label kind="guard" x="1343" y="662">threshold_phase != n_phases</label>
+			<nail x="1428" y="756" />
+			<nail x="1428" y="552" />
+		</transition>
+		<transition>
+			<source ref="id13" />
+			<target ref="id13" />
+			<label kind="guard" x="569" y="748">phase &lt; n_phases &amp;&amp; phase == threshold_phase</label>
+			<label kind="synchronisation" x="731" y="765">insp_thres[insp_id]!</label>
+			<label kind="assignment" x="722" y="782">phase := phase + 1</label>
+			<nail x="875" y="808" />
+			<nail x="875" y="749" />
+		</transition>
+		<transition>
+			<source ref="id13" />
+			<target ref="id13" />
+			<label kind="guard" x="901" y="833">phase &lt; n_phases &amp;&amp; phase != threshold_phase</label>
+			<label kind="assignment" x="901" y="850">phase := phase + 1</label>
+			<nail x="960" y="825" />
+			<nail x="901" y="825" />
+		</transition>
+		<transition>
+			<source ref="id10" />
+			<target ref="id11" />
+			<label kind="synchronisation" x="1096" y="511">repl[repl_id]?</label>
+		</transition>
+		<transition>
+			<source ref="id12" />
+			<target ref="id10" />
+			<label kind="guard" x="1105" y="570">threshold_phase == n_phases</label>
+			<label kind="synchronisation" x="1164" y="595">insp_thres[insp_id]!</label>
+		</transition>
+		<transition>
+			<source ref="id13" />
+			<target ref="id12" />
+			<label kind="guard" x="1121" y="731">phase == n_phases</label>
+			<label kind="synchronisation" x="1163" y="714">fail[id]!</label>
+			<label kind="assignment" x="1138" y="757">fails=fails+1,afails=afails+1</label>
+		</transition>
+	</template>
+	<template>
+		<name>BE_malicious</name>
+		<parameter>  double lambda, int p, int a, int r, int id, bool Enable, double lambda1, int w1, int w2,int d, int possible, int detect_time, int repl_id,int p1,int p2</parameter>
+		<declaration>clock s;
+clock t;
+clock x;
+clock downtime;</declaration>
+		<location id="id18" x="-255" y="51">
+			<urgent />
+		</location>
+		<location id="id19" x="-544" y="-195">
+			<name x="-620" y="-204">repaired</name>
+			<label kind="invariant" x="-603" y="-238">downtime'==1</label>
+			<committed />
+		</location>
+		<location id="id20" x="-348" y="-229">
+			<label kind="invariant" x="-391" y="-263">downtime'==1</label>
+		</location>
+		<location id="id21" x="-68" y="-221">
+			<name x="-78" y="-255">detectable</name>
+			<label kind="invariant" x="-136" y="-272">x&lt;=detect_time &amp;&amp; downtime'==1</label>
+		</location>
+		<location id="id22" x="76" y="-161">
+			<name x="66" y="-195">undetectable</name>
+			<label kind="invariant" x="93" y="-161">downtime'==0 &amp;&amp; cost'==0</label>
+		</location>
+		<location id="id23" x="-93" y="127">
+			<name x="-103" y="93">stop</name>
+			<label kind="invariant" x="-103" y="144">downtime'==0 &amp;&amp; cost'==0</label>
+		</location>
+		<location id="id24" x="-399" y="42">
+			<name x="-409" y="8">ongoing</name>
+			<label kind="invariant" x="-416" y="76">t'==r &amp;&amp; downtime'==0</label>
+			<label kind="exponentialrate" x="-407" y="59">lambda1</label>
+		</location>
+		<location id="id25" x="-535" y="127">
+			<name x="-569" y="144">potentially_detected</name>
+			<committed />
+		</location>
+		<location id="id26" x="-170" y="-51">
+			<name x="-195" y="-85">Execution</name>
+			<committed />
+		</location>
+		<location id="id27" x="-501" y="-51">
+			<name x="-620" y="-85">potentially_undetected</name>
+			<committed />
+		</location>
+		<location id="id28" x="-748" y="17">
+			<name x="-765" y="-17">wait</name>
+			<label kind="invariant" x="-758" y="34">downtime'==0</label>
+			<committed />
+		</location>
+		<location id="id29" x="-908" y="17">
+			<name x="-918" y="-17">Initial</name>
+			<label kind="invariant" x="-952" y="34">cost'==0</label>
+		</location>
+		<location id="id30" x="-501" y="-153">
+			<name x="-511" y="-187">goal_reached_before</name>
+			<label kind="invariant" x="-484" y="-144">cost'==0 &amp;&amp; downtime'==0</label>
+		</location>
+		<location id="id31" x="51" y="-8">
+			<name x="34" y="1">Failure</name>
+			<label kind="invariant" x="67" y="-25">cost'==0 &amp;&amp; downtime'==0</label>
+		</location>
+		<location id="id32" x="-119" y="-8">
+			<name x="-144" y="9">Wait_failure</name>
+			<committed />
+		</location>
+		<location id="id33" x="42" y="-110">
+			<name x="17" y="-93">Success</name>
+			<label kind="invariant" x="59" y="-110">cost'==0</label>
+			<committed />
+		</location>
+		<location id="id34" x="-110" y="-110">
+			<name x="-211" y="-135">Wait_success</name>
+			<committed />
+		</location>
+		<location id="id35" x="-314" y="-51">
+			<name x="-382" y="-51">Activated</name>
+			<label kind="invariant" x="-365" y="-85">s'==r &amp;&amp; downtime'==0</label>
+			<label kind="exponentialrate" x="-340" y="-102">lambda</label>
+		</location>
+		<location id="id36" x="-748" y="-136">
+			<name x="-910" y="-136">goal_reached_before1</name>
+			<label kind="invariant" x="-731" y="-145">cost'==0</label>
+		</location>
+		<branchpoint id="id37" x="-195" y="42">
+		</branchpoint>
+		<branchpoint id="id38" x="-646" y="17">
+		</branchpoint>
+		<branchpoint id="id39" x="-68" y="-51">
+		</branchpoint>
+		<init ref="id29" />
+		<transition>
+			<source ref="id37" />
+			<target ref="id35" />
+			<label kind="probability" x="-204" y="-25">p1</label>
+			<nail x="-187" y="34" />
+			<nail x="-187" y="8" />
+			<nail x="-221" y="-17" />
+		</transition>
+		<transition>
+			<source ref="id37" />
+			<target ref="id23" />
+			<label kind="probability" x="-161" y="51">p2</label>
+		</transition>
+		<transition>
+			<source ref="id18" />
+			<target ref="id37" />
+		</transition>
+		<transition>
+			<source ref="id35" />
+			<target ref="id18" />
+			<label kind="synchronisation" x="-340" y="-8">mal_inspect[id]?</label>
+		</transition>
+		<transition>
+			<source ref="id19" />
+			<target ref="id28" />
+			<label kind="synchronisation" x="-654" y="-161">repair[id]!</label>
+			<label kind="assignment" x="-739" y="-110">total_downtime=total_downtime+downtime</label>
+		</transition>
+		<transition>
+			<source ref="id20" />
+			<target ref="id19" />
+			<label kind="synchronisation" x="-484" y="-246">repl[repl_id]?</label>
+		</transition>
+		<transition>
+			<source ref="id21" />
+			<target ref="id20" />
+			<label kind="guard" x="-255" y="-221">x&gt;=detect_time</label>
+			<label kind="synchronisation" x="-272" y="-263">repl_force[repl_id]!</label>
+		</transition>
+		<transition>
+			<source ref="id33" />
+			<target ref="id21" />
+			<label kind="guard" x="-25" y="-204">possible==1</label>
+			<label kind="assignment" x="-42" y="-170">x:=0</label>
+		</transition>
+		<transition>
+			<source ref="id33" />
+			<target ref="id22" />
+			<label kind="guard" x="68" y="-144">possible==0</label>
+		</transition>
+		<transition>
+			<source ref="id25" />
+			<target ref="id23" />
+		</transition>
+		<transition>
+			<source ref="id24" />
+			<target ref="id25" />
+			<label kind="assignment" x="-527" y="51">cost=cost+t</label>
+		</transition>
+		<transition>
+			<source ref="id27" />
+			<target ref="id24" />
+		</transition>
+		<transition>
+			<source ref="id38" />
+			<target ref="id25" />
+			<label kind="probability" x="-586" y="59">w2</label>
+		</transition>
+		<transition>
+			<source ref="id38" />
+			<target ref="id27" />
+			<label kind="probability" x="-603" y="-34">w1</label>
+		</transition>
+		<transition>
+			<source ref="id28" />
+			<target ref="id38" />
+			<label kind="assignment" x="-730" y="17">cost=cost+a</label>
+		</transition>
+		<transition>
+			<source ref="id29" />
+			<target ref="id28" />
+			<label kind="guard" x="-867" y="25">Enable</label>
+			<label kind="synchronisation" x="-884" y="42">activate[id]?</label>
+		</transition>
+		<transition>
+			<source ref="id27" />
+			<target ref="id30" />
+			<label kind="synchronisation" x="-493" y="-127">c?</label>
+		</transition>
+		<transition>
+			<source ref="id35" />
+			<target ref="id26" />
+			<label kind="assignment" x="-263" y="-51">cost=cost+s</label>
+		</transition>
+		<transition>
+			<source ref="id26" />
+			<target ref="id39" />
+		</transition>
+		<transition>
+			<source ref="id39" />
+			<target ref="id32" />
+			<label kind="probability" x="-85" y="-34">1-p</label>
+		</transition>
+		<transition>
+			<source ref="id39" />
+			<target ref="id34" />
+			<label kind="probability" x="-68" y="-85">p</label>
+			<nail x="-76" y="-68" />
+		</transition>
+		<transition>
+			<source ref="id32" />
+			<target ref="id31" />
+		</transition>
+		<transition>
+			<source ref="id34" />
+			<target ref="id33" />
+			<label kind="synchronisation" x="-59" y="-136">fail[id]!</label>
+			<label kind="assignment" x="-76" y="-110">dam=dam+d</label>
+		</transition>
+		<transition>
+			<source ref="id27" />
+			<target ref="id35" />
+			<label kind="assignment" x="-484" y="-76">fails=fails+1,mfails=mfails+1</label>
+		</transition>
+		<transition>
+			<source ref="id28" />
+			<target ref="id36" />
+			<label kind="synchronisation" x="-765" y="-85">c?</label>
+		</transition>
+	</template>
+	<template>
+		<name>gate_sand2</name>
+		<parameter>int id, int &amp;inputs[2]</parameter>
+		<location id="id40" x="-416" y="-178">
+			<committed />
+		</location>
+		<location id="id41" x="-663" y="-93">
+			<committed />
+		</location>
+		<location id="id42" x="-323" y="-272">
+			<name x="-306" y="-289">Disr</name>
+		</location>
+		<location id="id43" x="-467" y="-272">
+			<committed />
+		</location>
+		<location id="id44" x="-654" y="-272">
+			<name x="-654" y="-306">fail1</name>
+		</location>
+		<location id="id45" x="-841" y="-272">
+			<committed />
+		</location>
+		<location id="id46" x="-1037" y="-272">
+			<name x="-1088" y="-314">fail0</name>
+		</location>
+		<location id="id47" x="-1215" y="-272">
+			<committed />
+		</location>
+		<location id="id48" x="-1419" y="-272">
+			<name x="-1429" y="-306">Init</name>
+		</location>
+		<init ref="id48" />
+		<transition>
+			<source ref="id40" />
+			<target ref="id44" />
+			<label kind="synchronisation" x="-603" y="-204">repair[id]!</label>
+			<nail x="-637" y="-178" />
+		</transition>
+		<transition>
+			<source ref="id42" />
+			<target ref="id40" />
+			<label kind="synchronisation" x="-484" y="-238">repair[inputs[1]]?</label>
+		</transition>
+		<transition>
+			<source ref="id41" />
+			<target ref="id46" />
+			<label kind="synchronisation" x="-943" y="-119">repair[id]!</label>
+			<nail x="-1037" y="-93" />
+		</transition>
+		<transition>
+			<source ref="id42" />
+			<target ref="id41" />
+			<label kind="synchronisation" x="-467" y="-119">repair[inputs[0]]?</label>
+			<nail x="-238" y="-93" />
+			<nail x="-646" y="-93" />
+		</transition>
+		<transition>
+			<source ref="id44" />
+			<target ref="id46" />
+			<label kind="synchronisation" x="-926" y="-493">repair[inputs[0]]?</label>
+			<nail x="-671" y="-467" />
+			<nail x="-1045" y="-467" />
+		</transition>
+		<transition>
+			<source ref="id46" />
+			<target ref="id45" />
+			<label kind="synchronisation" x="-977" y="-297">fail[inputs[0]]?</label>
+		</transition>
+		<transition>
+			<source ref="id43" />
+			<target ref="id42" />
+			<label kind="synchronisation" x="-425" y="-297">fail[id]!</label>
+		</transition>
+		<transition>
+			<source ref="id44" />
+			<target ref="id43" />
+			<label kind="synchronisation" x="-612" y="-297">fail[inputs[1]]?</label>
+		</transition>
+		<transition>
+			<source ref="id45" />
+			<target ref="id44" />
+			<label kind="synchronisation" x="-816" y="-297">activate[inputs[1]]!</label>
+		</transition>
+		<transition>
+			<source ref="id47" />
+			<target ref="id46" />
+			<label kind="synchronisation" x="-1190" y="-297">activate[inputs[0]]!</label>
+		</transition>
+		<transition>
+			<source ref="id48" />
+			<target ref="id47" />
+			<label kind="synchronisation" x="-1385" y="-297">activate[id]?</label>
+		</transition>
+	</template>
+	<template>
+		<name>gate_and2</name>
+		<parameter>int id, int &amp;inputs[2]</parameter>
+		<location id="id49" x="263" y="-76">
+			<committed />
+		</location>
+		<location id="id50" x="255" y="93">
+			<committed />
+		</location>
+		<location id="id51" x="399" y="0">
+		</location>
+		<location id="id52" x="85" y="93">
+		</location>
+		<location id="id53" x="178" y="0">
+			<committed />
+		</location>
+		<location id="id54" x="85" y="-76">
+		</location>
+		<location id="id55" x="0" y="0">
+		</location>
+		<location id="id56" x="-518" y="0">
+		</location>
+		<location id="id57" x="-357" y="0">
+			<committed />
+		</location>
+		<location id="id58" x="-204" y="0">
+			<committed />
+		</location>
+		<init ref="id56" />
+		<transition>
+			<source ref="id58" />
+			<target ref="id55" />
+			<label kind="synchronisation" x="-170" y="-25">activate[inputs[1]]!</label>
+		</transition>
+		<transition>
+			<source ref="id57" />
+			<target ref="id58" />
+			<label kind="synchronisation" x="-340" y="-34">activate[inputs[0]]!</label>
+		</transition>
+		<transition>
+			<source ref="id56" />
+			<target ref="id57" />
+			<label kind="synchronisation" x="-476" y="-34">activate[id]?</label>
+		</transition>
+		<transition>
+			<source ref="id49" />
+			<target ref="id54" />
+			<label kind="synchronisation" x="144" y="-93">repair[id]!</label>
+		</transition>
+		<transition>
+			<source ref="id50" />
+			<target ref="id52" />
+			<label kind="synchronisation" x="153" y="93">repair[id]!</label>
+		</transition>
+		<transition>
+			<source ref="id51" />
+			<target ref="id50" />
+			<label kind="synchronisation" x="273" y="76">repair[inputs[0]]?</label>
+			<nail x="399" y="93" />
+		</transition>
+		<transition>
+			<source ref="id51" />
+			<target ref="id49" />
+			<label kind="synchronisation" x="281" y="-93">repair[inputs[1]]?</label>
+			<nail x="399" y="-76" />
+		</transition>
+		<transition>
+			<source ref="id52" />
+			<target ref="id55" />
+			<label kind="synchronisation" x="-68" y="102">repair[inputs[1]]?</label>
+			<nail x="-119" y="93" />
+		</transition>
+		<transition>
+			<source ref="id54" />
+			<target ref="id55" />
+			<label kind="synchronisation" x="-109" y="-93">repair[inputs[0]]?</label>
+			<nail x="-127" y="-76" />
+		</transition>
+		<transition>
+			<source ref="id53" />
+			<target ref="id51" />
+			<label kind="synchronisation" x="263" y="-17">fail[id]!</label>
+		</transition>
+		<transition>
+			<source ref="id54" />
+			<target ref="id53" />
+			<label kind="synchronisation" x="144" y="-59">fail[inputs[1]]?</label>
+		</transition>
+		<transition>
+			<source ref="id52" />
+			<target ref="id53" />
+			<label kind="synchronisation" x="136" y="42">fail[inputs[0]]?</label>
+		</transition>
+		<transition>
+			<source ref="id55" />
+			<target ref="id52" />
+			<label kind="synchronisation" x="-51" y="51">fail[inputs[1]]?</label>
+		</transition>
+		<transition>
+			<source ref="id55" />
+			<target ref="id54" />
+			<label kind="synchronisation" x="-59" y="-59">fail[inputs[0]]?</label>
+		</transition>
+	</template>
+	<template>
+		<name>gate_or2</name>
+		<parameter>int id, int &amp;inputs[2]</parameter>
+		<location id="id59" x="-119" y="0">
+			<committed />
+		</location>
+		<location id="id60" x="493" y="8">
+		</location>
+		<location id="id61" x="306" y="93">
+		</location>
+		<location id="id62" x="306" y="-85">
+			<name x="314" y="-119">check</name>
+		</location>
+		<location id="id63" x="153" y="93">
+			<committed />
+		</location>
+		<location id="id64" x="153" y="-85">
+			<committed />
+		</location>
+		<location id="id65" x="-8" y="0">
+			<name x="-17" y="-42">start</name>
+		</location>
+		<location id="id66" x="-408" y="-229">
+		</location>
+		<location id="id67" x="-408" y="-127">
+			<committed />
+		</location>
+		<location id="id68" x="-408" y="-34">
+			<committed />
+		</location>
+		<init ref="id66" />
+		<transition>
+			<source ref="id68" />
+			<target ref="id65" />
+			<label kind="synchronisation" x="-246" y="-136">activate[inputs[1]]!</label>
+			<nail x="-238" y="-144" />
+			<nail x="-76" y="-144" />
+		</transition>
+		<transition>
+			<source ref="id67" />
+			<target ref="id68" />
+			<label kind="synchronisation" x="-527" y="-102">activate[inputs[0]]!</label>
+		</transition>
+		<transition>
+			<source ref="id66" />
+			<target ref="id67" />
+			<label kind="synchronisation" x="-399" y="-195">activate[id]?</label>
+		</transition>
+		<transition>
+			<source ref="id61" />
+			<target ref="id59" />
+			<label kind="synchronisation" x="-85" y="127">repair[inputs[1]]?</label>
+			<nail x="306" y="161" />
+			<nail x="-119" y="153" />
+		</transition>
+		<transition>
+			<source ref="id62" />
+			<target ref="id59" />
+			<label kind="synchronisation" x="-101" y="-187">repair[inputs[0]]?</label>
+			<nail x="306" y="-170" />
+			<nail x="-119" y="-170" />
+		</transition>
+		<transition>
+			<source ref="id59" />
+			<target ref="id65" />
+			<label kind="synchronisation" x="-93" y="-25">repair[id]!</label>
+		</transition>
+		<transition>
+			<source ref="id60" />
+			<target ref="id61" />
+			<label kind="synchronisation" x="501" y="59">repair[inputs[0]]?</label>
+			<nail x="493" y="93" />
+		</transition>
+		<transition>
+			<source ref="id60" />
+			<target ref="id62" />
+			<label kind="synchronisation" x="501" y="-59">repair[inputs[1]]?</label>
+			<nail x="493" y="-85" />
+		</transition>
+		<transition>
+			<source ref="id61" />
+			<target ref="id60" />
+			<label kind="synchronisation" x="289" y="25">fail[inputs[0]]?</label>
+		</transition>
+		<transition>
+			<source ref="id62" />
+			<target ref="id60" />
+			<label kind="synchronisation" x="289" y="-42">fail[inputs[1]]?</label>
+		</transition>
+		<transition>
+			<source ref="id64" />
+			<target ref="id62" />
+			<label kind="synchronisation" x="187" y="-110">fail[id]!</label>
+		</transition>
+		<transition>
+			<source ref="id63" />
+			<target ref="id61" />
+			<label kind="synchronisation" x="195" y="68">fail[id]!</label>
+		</transition>
+		<transition>
+			<source ref="id65" />
+			<target ref="id63" />
+			<label kind="synchronisation" x="76" y="17">fail[inputs[1]]?</label>
+		</transition>
+		<transition>
+			<source ref="id65" />
+			<target ref="id64" />
+			<label kind="synchronisation" x="76" y="-42">fail[inputs[0]]?</label>
+		</transition>
+	</template>
+	<template>
+		<name>gate_pand2</name>
+		<parameter>int id, int &amp;inputs[2]</parameter>
+		<location id="id69" x="-314" y="-42">
+			<committed />
+		</location>
+		<location id="id70" x="-467" y="-127">
+			<name x="-510" y="-136">disr</name>
+		</location>
+		<location id="id71" x="-323" y="-127">
+			<committed />
+		</location>
+		<location id="id72" x="-161" y="-127">
+		</location>
+		<location id="id73" x="93" y="-178">
+		</location>
+		<location id="id74" x="-161" y="-178">
+			<committed />
+		</location>
+		<location id="id75" x="-425" y="-178">
+			<committed />
+		</location>
+		<location id="id76" x="-646" y="-178">
+		</location>
+		<init ref="id76" />
+		<transition>
+			<source ref="id69" />
+			<target ref="id72" />
+			<label kind="synchronisation" x="-323" y="-93">repair[id]!</label>
+		</transition>
+		<transition>
+			<source ref="id70" />
+			<target ref="id69" />
+			<label kind="synchronisation" x="-476" y="-76">repair[inputs[1]]?</label>
+		</transition>
+		<transition>
+			<source ref="id72" />
+			<target ref="id73" />
+			<label kind="synchronisation" x="-68" y="-136">repair[inputs[0]]?</label>
+			<nail x="42" y="-102" />
+		</transition>
+		<transition>
+			<source ref="id72" />
+			<target ref="id71" />
+			<label kind="synchronisation" x="-289" y="-127">fail[inputs[1]]?</label>
+		</transition>
+		<transition>
+			<source ref="id73" />
+			<target ref="id72" />
+			<label kind="synchronisation" x="-144" y="-161">fail[inputs[0]]?</label>
+		</transition>
+		<transition>
+			<source ref="id71" />
+			<target ref="id70" />
+			<label kind="synchronisation" x="-399" y="-153">fail[id]!</label>
+		</transition>
+		<transition>
+			<source ref="id74" />
+			<target ref="id73" />
+			<label kind="synchronisation" x="-110" y="-195">activate[inputs[1]]!</label>
+		</transition>
+		<transition>
+			<source ref="id75" />
+			<target ref="id74" />
+			<label kind="synchronisation" x="-382" y="-204">activate[inputs[0]]!</label>
+		</transition>
+		<transition>
+			<source ref="id76" />
+			<target ref="id75" />
+			<label kind="synchronisation" x="-603" y="-195">activate[id]?</label>
+		</transition>
+	</template>
+	<template>
+		<name>Top_event</name>
+		<parameter>int id</parameter>
+		<location id="id77" x="382" y="-102">
+			<name x="372" y="-136">Goal</name>
+		</location>
+		<location id="id78" x="136" y="-102">
+			<name x="126" y="-136">interesting</name>
+			<committed />
+		</location>
+		<location id="id79" x="-187" y="-102">
+			<name x="-212" y="-136">waiting_fail</name>
+		</location>
+		<location id="id80" x="-476" y="-102">
+			<name x="-486" y="-136">Init</name>
+			<committed />
+		</location>
+		<init ref="id80" />
+		<transition>
+			<source ref="id77" />
+			<target ref="id79" />
+			<label kind="synchronisation" x="68" y="-59">repair[id]?</label>
+			<nail x="229" y="-34" />
+			<nail x="-178" y="-34" />
+		</transition>
+		<transition>
+			<source ref="id78" />
+			<target ref="id77" />
+			<label kind="synchronisation" x="238" y="-127">c!</label>
+		</transition>
+		<transition>
+			<source ref="id79" />
+			<target ref="id78" />
+			<label kind="synchronisation" x="-59" y="-127">fail[id]?</label>
+		</transition>
+		<transition>
+			<source ref="id80" />
+			<target ref="id79" />
+			<label kind="synchronisation" x="-408" y="-127">activate[id]!</label>
+		</transition>
+	</template>
+	<template>
+		<name>replacement</name>
+		<parameter>int id, int interval, int repair_time, int repl_cost,int enable</parameter>
+		<declaration>clock timer;
+int times=0;</declaration>
+		<location id="id81" x="-399" y="-178">
+		</location>
+		<location id="id82" x="-238" y="-144">
+			<name x="-248" y="-178">dead_state</name>
+		</location>
+		<location id="id83" x="136" y="-110">
+			<committed />
+		</location>
+		<location id="id84" x="136" y="0">
+			<label kind="invariant" x="126" y="17">timer &lt;= repair_time</label>
+		</location>
+		<location id="id85" x="-187" y="0">
+			<label kind="invariant" x="-425" y="-8">(timer &lt;= interval) || (interval == 0)</label>
+		</location>
+		<location id="id86" x="-408" y="-59">
+			<urgent />
+		</location>
+		<init ref="id86" />
+		<transition>
+			<source ref="id86" />
+			<target ref="id81" />
+			<label kind="guard" x="-399" y="-127">enable==0</label>
+		</transition>
+		<transition>
+			<source ref="id86" />
+			<target ref="id85" />
+			<label kind="guard" x="-323" y="-59">enable==1</label>
+		</transition>
+		<transition>
+			<source ref="id84" />
+			<target ref="id82" />
+			<label kind="synchronisation" x="-170" y="-136">c?</label>
+		</transition>
+		<transition>
+			<source ref="id85" />
+			<target ref="id82" />
+			<label kind="synchronisation" x="-238" y="-85">c?</label>
+		</transition>
+		<transition>
+			<source ref="id84" />
+			<target ref="id83" />
+			<label kind="guard" x="153" y="-59">timer == repair_time</label>
+			<label kind="assignment" x="153" y="-42">total_cost = total_cost + repl_cost,
+total_replacement_cost = total_replacement_cost + repl_cost</label>
+		</transition>
+		<transition>
+			<source ref="id83" />
+			<target ref="id85" />
+			<label kind="synchronisation" x="-127" y="-76">repl[id]!</label>
+			<label kind="assignment" x="-178" y="-59">timer := 0, times += 1</label>
+		</transition>
+		<transition>
+			<source ref="id85" />
+			<target ref="id84" />
+			<label kind="guard" x="-348" y="42">(timer &lt; interval) || (interval == 0)</label>
+			<label kind="synchronisation" x="-204" y="59">repl_force[id]?</label>
+			<label kind="assignment" x="-136" y="76">timer := 0</label>
+			<nail x="-8" y="93" />
+		</transition>
+		<transition>
+			<source ref="id85" />
+			<target ref="id84" />
+			<label kind="guard" x="-136" y="-17">(timer == interval) &amp;&amp; (interval &gt; 0)</label>
+			<label kind="assignment" x="-59" y="0">timer := 0</label>
+			<nail x="68" y="0" />
+		</transition>
+	</template>
+	<template>
+		<name>inspection</name>
+		<parameter>int id, int repl_id, int interval, int insp_cost,int enable</parameter>
+		<declaration>clock timer;</declaration>
+		<location id="id87" x="-960" y="-705">
+		</location>
+		<location id="id88" x="-569" y="-442">
+			<name x="-569" y="-476">dead_state</name>
+		</location>
+		<location id="id89" x="-790" y="-646">
+			<label kind="invariant" x="-833" y="-680">timer &lt;= interval</label>
+		</location>
+		<location id="id90" x="-629" y="-646">
+			<label kind="invariant" x="-671" y="-680">timer &lt;= interval</label>
+		</location>
+		<location id="id91" x="-943" y="-620">
+			<urgent />
+		</location>
+		<init ref="id91" />
+		<transition>
+			<source ref="id91" />
+			<target ref="id87" />
+			<label kind="guard" x="-1020" y="-671">enable==0</label>
+		</transition>
+		<transition>
+			<source ref="id91" />
+			<target ref="id89" />
+			<label kind="guard" x="-918" y="-629">enable==1</label>
+		</transition>
+		<transition>
+			<source ref="id90" />
+			<target ref="id88" />
+			<label kind="synchronisation" x="-586" y="-535">c?</label>
+		</transition>
+		<transition>
+			<source ref="id89" />
+			<target ref="id88" />
+			<label kind="synchronisation" x="-637" y="-527">c?</label>
+		</transition>
+		<transition>
+			<source ref="id90" />
+			<target ref="id89" />
+			<label kind="guard" x="-493" y="-714">timer == interval</label>
+			<label kind="synchronisation" x="-493" y="-697">repl_force[repl_id]!</label>
+			<label kind="assignment" x="-493" y="-680">timer := 0,
+total_cost = total_cost + insp_cost,
+total_inspection_cost = total_inspection_cost + insp_cost</label>
+			<nail x="-501" y="-646" />
+			<nail x="-501" y="-731" />
+			<nail x="-875" y="-731" />
+			<nail x="-875" y="-646" />
+		</transition>
+		<transition>
+			<source ref="id89" />
+			<target ref="id89" />
+			<label kind="guard" x="-934" y="-577">timer == interval</label>
+			<label kind="assignment" x="-1045" y="-578">timer := 0,
+total_inspection_cost = total_inspection_cost + insp_cost,
+total_cost = total_cost + insp_cost</label>
+			<nail x="-816" y="-578" />
+			<nail x="-858" y="-578" />
+		</transition>
+		<transition>
+			<source ref="id89" />
+			<target ref="id90" />
+			<label kind="guard" x="-748" y="-629">timer &lt; interval</label>
+			<label kind="synchronisation" x="-756" y="-646">insp_thres[id]?</label>
+		</transition>
+	</template>
+	<template>
+		<name>malicious_inspect</name>
+		<parameter>int id, int interval, int insp_cost,int enable</parameter>
+		<declaration>clock x;</declaration>
+		<location id="id92" x="-1836" y="-1598">
+		</location>
+		<location id="id93" x="-1674" y="-1521">
+			<label kind="invariant" x="-1717" y="-1564">x&lt;=interval</label>
+		</location>
+		<location id="id94" x="-1836" y="-1521">
+			<urgent />
+		</location>
+		<init ref="id94" />
+		<transition>
+			<source ref="id93" />
+			<target ref="id93" />
+			<label kind="guard" x="-1547" y="-1581">x&gt;=interval</label>
+			<label kind="synchronisation" x="-1547" y="-1564">mal_inspect[id]!</label>
+			<label kind="assignment" x="-1530" y="-1538">total_inspection_cost=total_inspection_cost+insp_cost,
+x=0</label>
+			<nail x="-1615" y="-1581" />
+			<nail x="-1547" y="-1547" />
+			<nail x="-1538" y="-1496" />
+			<nail x="-1572" y="-1453" />
+			<nail x="-1640" y="-1462" />
+		</transition>
+		<transition>
+			<source ref="id94" />
+			<target ref="id92" />
+			<label kind="guard" x="-1836" y="-1572">enable==0</label>
+		</transition>
+		<transition>
+			<source ref="id94" />
+			<target ref="id93" />
+			<label kind="guard" x="-1785" y="-1547">enable==1</label>
+			<label kind="assignment" x="-1785" y="-1521">x=0</label>
+		</transition>
+	</template>
+	<template>
+		<name>malicious_repair</name>
+		<parameter>int id, int repair_time, int repl_cost,int enable</parameter>
+		<declaration>clock x;</declaration>
+		<location id="id95" x="-977" y="-731">
+		</location>
+		<location id="id96" x="-731" y="-569">
+		</location>
+		<location id="id97" x="-535" y="-663">
+			<name x="-545" y="-697">faulty</name>
+			<label kind="invariant" x="-518" y="-671">x&lt;=repair_time</label>
+		</location>
+		<location id="id98" x="-850" y="-663">
+		</location>
+		<location id="id99" x="-977" y="-663">
+			<urgent />
+		</location>
+		<init ref="id99" />
+		<transition>
+			<source ref="id99" />
+			<target ref="id95" />
+			<label kind="guard" x="-1045" y="-705">enable==0</label>
+		</transition>
+		<transition>
+			<source ref="id99" />
+			<target ref="id98" />
+			<label kind="guard" x="-952" y="-688">enable==1</label>
+		</transition>
+		<transition>
+			<source ref="id97" />
+			<target ref="id96" />
+			<label kind="synchronisation" x="-697" y="-612">c?</label>
+		</transition>
+		<transition>
+			<source ref="id98" />
+			<target ref="id96" />
+			<label kind="synchronisation" x="-799" y="-612">c?</label>
+		</transition>
+		<transition>
+			<source ref="id97" />
+			<target ref="id98" />
+			<label kind="guard" x="-739" y="-782">x&gt;=repair_time</label>
+			<label kind="synchronisation" x="-816" y="-731">repl[id]!</label>
+			<label kind="assignment" x="-612" y="-748">total_cost = total_cost + repl_cost,
+total_replacement_cost = total_replacement_cost + repl_cost</label>
+			<nail x="-697" y="-756" />
+		</transition>
+		<transition>
+			<source ref="id98" />
+			<target ref="id97" />
+			<label kind="synchronisation" x="-748" y="-688">repl_force[id]?</label>
+			<label kind="assignment" x="-722" y="-663">x:=0</label>
+		</transition>
+	</template>
+	<template>
+		<name>failure_listener</name>
+		<parameter>int event_id, int repl_id</parameter>
+		<location id="id100" x="153" y="0">
+			<committed />
+		</location>
+		<location id="id101" x="0" y="0">
+		</location>
+		<init ref="id101" />
+		<transition>
+			<source ref="id100" />
+			<target ref="id101" />
+			<label kind="guard" x="42" y="102">repl_id &gt;= 0</label>
+			<label kind="synchronisation" x="42" y="119">repl_force[repl_id]!</label>
+			<nail x="76" y="102" />
+		</transition>
+		<transition>
+			<source ref="id101" />
+			<target ref="id100" />
+			<label kind="synchronisation" x="25" y="8">fail[event_id]?</label>
+		</transition>
+	</template>
+	<system>ATTACK_EVENT_0 = BE_malicious(0.000206, 1, 150, 2, 0, 1, 0.000206, 4, 1, 10, 1, 4800, 1, 4, 1);
+insp_0 = malicious_inspect(0, 2200, 100, 1);
+repl_0 = malicious_repair(1, 1000, 100, 1);
+ATTACK_EVENT_2 = BE_malicious(0.000282, 1, 500, 2, 2, 1, 0.000282, 9, 1, 50, 1, 2400, 3, 9, 1);
+insp_2 = malicious_inspect(2, 2200, 100, 1);
+repl_2 = malicious_repair(3, 1000, 100, 1);
+FAILURE_EVENT_4 = BE_repair(4, 1, 9, 0.000139, 3, 2, 5, 6);
+insp_4 = inspection(6, 5, 2200, 100, 1);
+repl_4 = replacement(5, 2200, 1000, 100, 1);
+failure_listener_4 = failure_listener(4, 5);
+int OR_Gate_7[2] = {0, 4};
+G7 = gate_or2(7, OR_Gate_7);
+int AND_Gate_8[2] = {7, 2};
+G8 = gate_and2(8, AND_Gate_8);
+top_event=Top_event(8);
+system ATTACK_EVENT_0, insp_0, repl_0, ATTACK_EVENT_2, insp_2, repl_2, FAILURE_EVENT_4, insp_4, repl_4, failure_listener_4, G7, G8, top_event;</system>
+	<queries>
+		<query>
+			<formula>Pr[t&lt;=8800](&lt;&gt;top_event.Goal)</formula>
+			<comment />
+		</query>
+	</queries>
+</nta>

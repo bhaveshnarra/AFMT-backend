@@ -1,5 +1,5 @@
 import subprocess
-import sys, flask
+import sys
 import time, json, struct
 from fractions import Fraction
 import xml.etree.ElementTree as ET
@@ -9,27 +9,26 @@ CREATE_NEW_CONSOLE = 0x00000010
 database = { -1: 'obj'}
 id_map = {}
 max_id = 0
+gate_map = {"AND":"gate_and2", "SAND":"gate_sand2", "OR":"gate_or2"}
+g_inspFreq = 4400
 
 class AttackStep:
     p = 1
     r = 2
-    w1 = 0
-    w2 = 0
-    p1 = 0
-    p2 = 0
     repl_id = -1
     insp_id = -1
-    def __init__(self, id, label, lamda, lamda1, fixedCost, fixedDMG, enable, detectionPercent, repairPossible, detectionTime, repairCost, repairTime, xCord):
+    inspectionCost = 100
+    def __init__(self, id, label, lamda, lamda1, fixedCost, fixedDMG, enable, detectionPercent, repairPossible, detectTime, repairCost, repairTime, xCord):
         self.lamda = lamda
         self.lamda1 = lamda1
         self.enable = enable
         self.repairPossible = repairPossible
-        self.detectionTime = detectionTime
-        res = Fraction(detectionPercent).limit_denominator(10000)
-        w1 = res.denominator - res.numerator
-        w2 = res.numerator
-        p1 = w1
-        p2 = w2
+        self.detectTime = detectTime
+        res = Fraction(detectionPercent/100).limit_denominator(10000)
+        self.w1 = int(res.denominator - res.numerator)
+        self.w2 = int(res.numerator)
+        self.p1 = self.w1
+        self.p2 = self.w2
         self.id = id
         self.label = label
         self.p = 1
@@ -40,20 +39,19 @@ class AttackStep:
         self.fixedDMG = fixedDMG
 
 class AccidentalStep:
-    w1 = 0
-    w2 = 0
     repl_id = 0
     insp_id = 0
-    def __init__(self, id, label, lamda, phases, thresholdPhase, failureProbability, inspectionCost, repairTime, repairCost, xCord):
+    inspectionCost = 100
+    def __init__(self, id, label, lamda, phases, thresholdPhase, failureProbability, repairTime, repairCost, xCord):
         self.lamda = lamda
         self.phases = phases
         self.thresholdPhase = thresholdPhase
-        res = Fraction(failureProbability).limit_denominator(10000)
-        w1 = res.numerator
-        w2 = res.denominator - res.numerator
+        res = Fraction(failureProbability/100).limit_denominator(10000)
+        self.w1 = int(res.numerator)
+        self.w2 = int(res.denominator - res.numerator)
         self.id = id
         self.label = label
-        self.inspectionCost = inspectionCost
+        # self.inspectionCost = inspectionCost
         self.repairTime = repairTime
         self.repairCost = repairCost
         self.xCord = xCord
@@ -99,56 +97,63 @@ def parse_data(data):
     node_id_counter = 0
     for node in graph_data:
         this_node = node["userData"]
+        nodeId = node["id"]
         if(node["type"] == "ATTACK EVENT"):
-            lmbda = float(1)/float(24 * int(this_node["meanTTA"]))
+            lmbda = float(1)/float(24 * int(this_node["meanTTA"]["value"]))
             # double lambda, int p, int a, int r, int id, bool Enable, double lambda1, int w1, int w2, int d, int possible, int detect_time, int repl_id,int p1,int p2
             # mttf, 1, fixedCOA, 2, , , mttf, detectionPerc,, fixedDMG, detection(bool 0/1), detectTime, detectionPerc(p1/p2)
-            attack_step = AttackStep(node["id"], this_node["Label"], lmbda, lmbda, this_node["fixedCOA"],
-                this_node["fixedDMG"], int(this_node["enable"] == "true"), float(this_node["detectionPercent"]),
-                int(this_node["detection"]), int(this_node["detectionTime"])*24, int(this_node["inspectionCost"]),
-                int(this_node["repairCost"]), int(this_node["repairTime"])*24, int(node["x"]))
+            attack_step = AttackStep(node["id"], this_node["Label"], lmbda, lmbda, int(this_node["fixedCOA"]["value"]), int(this_node["fixedDMG"]["value"]), int(this_node["enable"]["value"] == True), float(this_node["detectionPercent"]["value"]), int(this_node["detection"]["value"] == True), int(this_node["detectTime"]["value"])*24, int(this_node["repairCost"]["value"]),  int(this_node["repairTime"]["value"]), int(node["x"]))
+                # int(this_node["inspectionCost"]["value"]),  int(this_node["repairTime"]["value"])*24
             database[nodeId] = attack_step
             # print(attack_step)
         elif(node["type"] == "FAILURE EVENT"):
-            lmbda = float(1)/float(24 * int(this_node["meanTTF"]))
+            lmbda = float(1)/float(24 * int(this_node["meanTTF"]["value"]))
             # id, label, lamda, phases, thresholdPhase, failureProbability, inspectionInterval, inspectionCost, inspection, repairInterval, repairTime, repairCost, xCord
-            accidental_step = AccidentalStep(node["id"], this_node["Label"], lmbda, int(this_node["noOfPhases"]),
-                int(this_node["thresholdPhase"]), float(this_node["failureProbability"]), this_node["inspectionCost"],
-                int(this_node["repairTime"])*24, this_node["repairCost"], int(node["x"]))
+            accidental_step = AccidentalStep(node["id"], this_node["Label"], lmbda, int(this_node["noOfPhases"]["value"]),
+                int(this_node["thresholdPhase"]["value"]), int(this_node["failureProbability"]["value"]), int(this_node["repairTime"]["value"]), int(this_node["repairCost"]["value"]), int(node["x"]))
+                # float(this_node["failureProbability"]["value"]), this_node["inspectionCost"]["value"], int(this_node["repairTime"]["value"])*24
             database[nodeId] = accidental_step
         elif(str(node["type"]).find("Gate") != -1):
             gate = Gate(node["id"], this_node["Label"], str(node["type"][:-5]), int(node["x"]))
             database[nodeId] = gate
         elif(node["type"] == "TOP EVENT"):
-            nodeId = node_id_counter + 1
-            topEvent = TopEvent(node["id"], node["userData"]['inspFeq'])
+            global g_inspFreq
+            g_inspFreq = int(node["userData"]["inspFreq"]["value"])
+            topEvent = TopEvent(node["id"], g_inspFreq)
+            database[nodeId] = topEvent
         node_id_counter = node_id_counter + 1
 
     # Set connections for gates
     for node in graph_data:
-        if(node["type"] == "Connection"):
-            nodeId = int(node["id"])
-            max_id = max(nodeId, max_id)
-            source = int(node["source"]["node"])
-            target = int(node["target"]["node"])
+        if(node["type"] == "draw2d.Connection"):
+            # nodeId = int(node["id"])
+            # max_id = max(nodeId, max_id)
+            source = node["source"]["node"]
+            target = node["target"]["node"]
             if isinstance(database[source], Gate):
+                if isinstance(database[target], TopEvent):
+                    database[target].id = source
                 temp_gate = database[source]
-                if temp_gate.lchild == 0:
-                    temp_gate.setLchild(target)
-                elif temp_gate.rchild == 0:
-                    leftXCord = database[temp_gate.lchild].xCord
-                    targetXCord = database[target].xCord
+                port = node["source"]["port"]
+                if port == "output0":
+                    temp_gate.parent = target
+                elif port == "input0":
+                    temp_gate.lchild = target
+                else:
                     temp_gate.rchild = target
-                    if leftXCord > targetXCord:
-                        temp_cord = temp_gate.lchild
-                        temp_gate.lchild = target
-                        temp_gate.rchild = temp_cord
-            elif isinstance(database[target], Gate):
-                database[target].parent = source
-            else:
-                print("Syntax error, non gate nodes connected. Illegal connection: ", database[source].label, "-->", database[target].label)
-
-        # print("|-->" + child[0].tag, child[0].attrib)
+            if isinstance(database[target], Gate):
+                if isinstance(database[source], TopEvent):
+                    database[source].id = target
+                temp_gate = database[target]
+                port = node["target"]["port"]
+                if port == "output0":
+                    temp_gate.parent = source
+                elif port == "input0":
+                    temp_gate.lchild = source
+                else:
+                    temp_gate.rchild = source
+            # else:
+            #     print("Syntax error, non gate nodes connected. Illegal connection: ", database[source].label, "-->", database[target].label)
 
 def getNewId():
     global max_id
@@ -161,7 +166,7 @@ def generateSysDecl():
     systemInstances = "system"
     # global properties for the system
     topEventId = 0
-    inspFreq = 4400 # TO be set
+    inspFreq = int(8800/g_inspFreq)
     preventive = 1
     corrective = 1
     for key in database:
@@ -173,7 +178,7 @@ def generateSysDecl():
             at_id = getNewId()
             id_map[atStep.id] = at_id
             replId = getNewId()
-            ret += "%s_%d = BE_malicious(%f, %d, %d, %d, %d, %d, %d, %f, %d, %d, %d, %d, %d, %d, %d);\n" % ('_'.join(atStep.label.split()), at_id, atStep.lamda, atStep.p, atStep.fixedCost, atStep.r, at_id, atStep.enable, atStep.lamda1, atStep.w1, atStep.w2, atStep.fixedDMG, atStep.repairPossible, atStep.detectionTime, replId, atStep.p1, atStep.p2)
+            ret += "%s_%d = BE_malicious(%f, %d, %d, %d, %d, %d, %f, %d, %d, %d, %d, %d, %d, %d, %d);\n" % ('_'.join(atStep.label.split()), at_id, atStep.lamda, atStep.p, atStep.fixedCost, atStep.r, at_id, atStep.enable, atStep.lamda1, atStep.w1, atStep.w2, atStep.fixedDMG, atStep.repairPossible, atStep.detectTime, replId, atStep.p1, atStep.p2)
             ret += "insp_%d = malicious_inspect(%d, %d, %d, %d);\n" % (at_id, at_id, inspFreq, atStep.inspectionCost, preventive)
             ret += "repl_%d = malicious_repair(%d, %d, %d, %d);\n" % (at_id, replId, atStep.repairTime, atStep.repairCost, corrective)
             systemInstances += " %s_%d, insp_%d, repl_%d," % ('_'.join(atStep.label.split()), at_id, at_id, at_id)
@@ -189,24 +194,27 @@ def generateSysDecl():
             inspId = getNewId()
             ret += "%s_%d = BE_repair(%d, %d, %d, %f, %d, %d, %d, %d);\n" % ('_'.join(acStep.label.split()), ac_id, ac_id, acStep.w1, acStep.w2, acStep.lamda, acStep.phases, acStep.thresholdPhase, replId, inspId)
             ret += "insp_%d = inspection(%d, %d, %d, %d, %d);\n" % (ac_id, inspId, replId, inspFreq, acStep.inspectionCost, preventive)
-            ret += "repl_%d = replacement(%d, %d, %d);\n" % (ac_id, replId, inspFreq, acStep.repairTime, acStep.repairCost, corrective)
-            systemInstances += " %s_%d, insp_%d, repl_%d," % ('_'.join(acStep.label.split()), ac_id, ac_id, ac_id)
-        elif isinstance(database[key], TopEvent):
-            topEvent = database[key]
-            topEventId = topEvent.id
-            inspFreq = topEvent.inspFreq
+            print(acStep.w1, acStep.w2)
+            ret += "repl_%d = replacement(%d, %d, %d, %d, %d);\n" % (ac_id, replId, inspFreq, acStep.repairTime, acStep.repairCost, corrective)
+            ret += "failure_listener_%d = failure_listener(%d, %d);\n" % (ac_id, ac_id, replId)
+            systemInstances += " %s_%d, insp_%d, repl_%d, failure_listener_%d," % ('_'.join(acStep.label.split()), ac_id, ac_id, ac_id, ac_id)
+        elif isinstance(database[key], Gate):
+            gateNode = database[key]
+            gate_id = getNewId()
+            id_map[gateNode.id] = gate_id
 
     for key in database:
         if isinstance(database[key], Gate):
             gateNode = database[key]
-            gate_id = getNewId()
-            id_map[gateNode.id] = gate_id
+            gate_id = id_map[gateNode.id]
             varName = "%s_%d" % ('_'.join(gateNode.label.split()), gate_id)
             ret += "int %s[2] = {%d, %d};\n" % (varName, id_map[gateNode.lchild], id_map[gateNode.rchild])
-            ret += "G%d = %s(%d, %s);\n" % (gate_id, gateNode.type, gate_id, varName)
+            ret += "G%d = %s(%d, %s);\n" % (gate_id, gate_map[gateNode.type], gate_id, varName)
             systemInstances += " G%d," % (gate_id)
+        elif isinstance(database[key], TopEvent):
+            topEventId = id_map[database[key].id]
 
-    ret += "top_event=Top_event(%s);\n" % (str(topEventId))
+    ret += "top_event=Top_event(%d);\n" % (topEventId)
     systemInstances = systemInstances + " top_event;"
     ret += systemInstances
     # print(ret)
@@ -306,7 +314,7 @@ def parseOutput(stdout):
 
 def tool_main(data):
     # data = "jsonData"
-    # with open('data.json', 'r') as file:
+    # with open('data_new.json', 'r') as file:
     #     data = file.read()
     parse_data(data)
     sysDeclaration = generateSysDecl()
@@ -323,9 +331,10 @@ def tool_main(data):
         # response = json.dumps([{'probCdfX':x_cord}, {'probCdfY':y_cord},{'probValList':[float(probList[0]), float(probList[1])]}], indent=True)
         return response_code, probList, x_cord, y_cord
     except:
+        print("Syntax error, unable to parse verifyta output")
         response_code = 501
     return response_code, "", "", ""
     # print(response)
 
 # if __name__ == "__main__":
-#     main()
+#     tool_main()
