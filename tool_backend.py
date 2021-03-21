@@ -91,11 +91,14 @@ def parse_data(data):
     # query = query_node.text
     # print(query_node.attrib, query_node.text)
     global max_id
-    graph_data = json.loads(data)
+    graph_data = data
     print("\nPrinting begins --- ")
     # Get data for all the nodes
     node_id_counter = 0
     for node in graph_data:
+        print()
+        print(node)
+        print()
         this_node = node["userData"]
         nodeId = node["id"]
         if(node["type"] == "ATTACK EVENT"):
@@ -314,16 +317,16 @@ def parseOutput(stdout):
 
 def tool_main(data):
     # data = "jsonData"
-    # with open('data_new.json', 'r') as file:
+    # with open('data_n.json', 'r') as file:
     #     data = file.read()
     parse_data(data)
     sysDeclaration = generateSysDecl()
     updateTemplate('AFMT_final_updates.xml', 'test_afmt.xml', sysDeclaration)
-    pid = subprocess.Popen('./verifyta.exe -O std test_afmt.xml', shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, stdin=subprocess.PIPE)
+    pid = subprocess.Popen('~/programming/AFMT-backend/verifyta -O std test_afmt.xml', shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, stdin=subprocess.PIPE)
     # For Windows # , creationflags=CREATE_NEW_CONSOLE
 
     out = pid.stdout.read()
-    out = out.split(b'\r\n')
+    out = out.split(b'\n')
     response = json.dumps({})
     response_code = 200
     try:

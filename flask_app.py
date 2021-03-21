@@ -13,10 +13,11 @@ def hello():
     return render_template('index.html')
 
 @app.route('/', methods=['POST'])
-@cross_origin()
+@cross_origin(supports_credentials=True)
 def parse_request():
-    data = flask.request.data
-    # print(data)
+    # data = flask.request.data
+    data = json.loads(flask.request.data)
+    print(data)
     response_code, probList, x_cord, y_cord = tool_main(data)
     response = flask.make_response()
     if response_code == 501:
@@ -25,4 +26,4 @@ def parse_request():
     return response
 
 if __name__ == '__main__':
-    app.run(debug=True,host='0.0.0.0',port=8080)
+    app.run(debug=True)

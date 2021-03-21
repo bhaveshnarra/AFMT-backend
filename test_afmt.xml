@@ -1126,22 +1126,17 @@ total_replacement_cost = total_replacement_cost + repl_cost</label>
 			<label kind="synchronisation" x="25" y="8">fail[event_id]?</label>
 		</transition>
 	</template>
-	<system>ATTACK_EVENT_0 = BE_malicious(0.000206, 1, 150, 2, 0, 1, 0.000206, 4, 1, 10, 1, 4800, 1, 4, 1);
+	<system>ATTACK_EVENT_0 = BE_malicious(0.000276, 1, 100, 2, 0, 1, 0.000276, 9, 1, 100, 1, 2400, 1, 9, 1);
 insp_0 = malicious_inspect(0, 2200, 100, 1);
 repl_0 = malicious_repair(1, 1000, 100, 1);
-ATTACK_EVENT_2 = BE_malicious(0.000282, 1, 500, 2, 2, 1, 0.000282, 9, 1, 50, 1, 2400, 3, 9, 1);
-insp_2 = malicious_inspect(2, 2200, 100, 1);
-repl_2 = malicious_repair(3, 1000, 100, 1);
-FAILURE_EVENT_4 = BE_repair(4, 1, 9, 0.000139, 3, 2, 5, 6);
-insp_4 = inspection(6, 5, 2200, 100, 1);
-repl_4 = replacement(5, 2200, 1000, 100, 1);
-failure_listener_4 = failure_listener(4, 5);
-int OR_Gate_7[2] = {0, 4};
-G7 = gate_or2(7, OR_Gate_7);
-int AND_Gate_8[2] = {7, 2};
-G8 = gate_and2(8, AND_Gate_8);
-top_event=Top_event(8);
-system ATTACK_EVENT_0, insp_0, repl_0, ATTACK_EVENT_2, insp_2, repl_2, FAILURE_EVENT_4, insp_4, repl_4, failure_listener_4, G7, G8, top_event;</system>
+FAILURE_EVENT_2 = BE_repair(2, 1, 9, 0.000167, 3, 2, 3, 4);
+insp_2 = inspection(4, 3, 2200, 100, 1);
+repl_2 = replacement(3, 2200, 100, 100, 1);
+failure_listener_2 = failure_listener(2, 3);
+int OR_Gate_5[2] = {0, 2};
+G5 = gate_or2(5, OR_Gate_5);
+top_event=Top_event(5);
+system ATTACK_EVENT_0, insp_0, repl_0, FAILURE_EVENT_2, insp_2, repl_2, failure_listener_2, G5, top_event;</system>
 	<queries>
 		<query>
 			<formula>Pr[t&lt;=8800](&lt;&gt;top_event.Goal)</formula>
