@@ -324,7 +324,7 @@ def tool_main(data):
         sysDeclaration = generateSysDecl()
         updateTemplate('AFMT_final_updates.xml',
                        'test_afmt.xml', sysDeclaration)
-        pid = subprocess.Popen('./verifyta.exe -O std test_afmt.xml', shell=True,
+        pid = subprocess.Popen('./verifyta -O std test_afmt.xml', shell=True,
                                stdout=subprocess.PIPE, stderr=subprocess.PIPE, stdin=subprocess.PIPE)
         # For Windows # , creationflags=CREATE_NEW_CONSOLE
     except Exception as e:
