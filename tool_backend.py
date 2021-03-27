@@ -319,24 +319,33 @@ def tool_main(data):
     # data = "jsonData"
     # with open('data_n.json', 'r') as file:
     #     data = file.read()
-    parse_data(data)
-    sysDeclaration = generateSysDecl()
-    updateTemplate('AFMT_final_updates.xml', 'test_afmt.xml', sysDeclaration)
-    pid = subprocess.Popen('~/programming/AFMT-backend/verifyta -O std test_afmt.xml', shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, stdin=subprocess.PIPE)
-    # For Windows # , creationflags=CREATE_NEW_CONSOLE
+    try:
+        parse_data(data)
+        sysDeclaration = generateSysDecl()
+        updateTemplate('AFMT_final_updates.xml',
+                       'test_afmt.xml', sysDeclaration)
+        pid = subprocess.Popen('./verifyta.exe -O std test_afmt.xml', shell=True,
+                               stdout=subprocess.PIPE, stderr=subprocess.PIPE, stdin=subprocess.PIPE)
+        # For Windows # , creationflags=CREATE_NEW_CONSOLE
+    except Exception as e:
+        print("Syntax/value error, unable to parse the graph")
+        return json.dumps({"Message": str(e.__class__) + str(e.__str__)}), 500, "", "", ""
 
     out = pid.stdout.read()
     out = out.split(b'\n')
-    response = json.dumps({})
+    response = json.dumps({"Message": "Success"})
     response_code = 200
     try:
         probList, x_cord, y_cord = parseOutput(out)
         # response = json.dumps([{'probCdfX':x_cord}, {'probCdfY':y_cord},{'probValList':[float(probList[0]), float(probList[1])]}], indent=True)
-        return response_code, probList, x_cord, y_cord
+        return response, response_code, probList, x_cord, y_cord
     except:
-        print("Syntax error, unable to parse verifyta output")
+        resp = "Syntax/value out of bound error, unable to parse verifyta output - " + \
+            str(pid.stderr.read().split(b'\n')[-1])
+        print("Syntax/value out of bound error, unable to parse verifyta output")
         response_code = 501
-    return response_code, "", "", ""
+        response = json.dumps({"Message": resp})
+    return response, response_code, "", "", ""
     # print(response)
 
 # if __name__ == "__main__":
