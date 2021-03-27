@@ -15,15 +15,21 @@ def hello():
 @app.route('/', methods=['POST'])
 @cross_origin(supports_credentials=True)
 def parse_request():
-    # data = flask.request.data
     data = json.loads(flask.request.data)
     print(data)
-    response_code, probList, x_cord, y_cord = tool_main(data)
-    response = flask.make_response()
-    if response_code == 501:
-        return flask.Response({}, status=501, mimetype='application/json')
-    response = flask.jsonify([{'probCdfX':x_cord}, {'probCdfY':y_cord},{'probValList':[float(probList[0]), float(probList[1])]}])
-    return response
+    response, response_code, probList, x_cord, y_cord = tool_main(data)
+    # response = flask.make_response()
+    if response_code > 499:
+        return flask.Response({response}, status=response_code, mimetype='application/json')
+    resp = flask.jsonify([{'probCdfX':x_cord}, {'probCdfY':y_cord},{'probValList':[float(probList[0]), float(probList[1])]}])
+    return resp
+
+@app.route('/downloadgeneratedafmtxml', methods=['GET'])
+@cross_origin()
+def downloadFile ():
+    #For windows you need to use drive name [ex: F:/Example.pdf]
+    path = "test_afmt.xml"
+    return flask.send_file(path, as_attachment=True)
 
 if __name__ == '__main__':
-    app.run(debug=True)
+    app.run(debug=True,port=8080)
