@@ -319,6 +319,9 @@ def tool_main(data):
     # data = "jsonData"
     # with open('data_n.json', 'r') as file:
     #     data = file.read()
+    global id_map, database
+    id_map.clear()
+    database.clear()
     try:
         parse_data(data)
         sysDeclaration = generateSysDecl()
