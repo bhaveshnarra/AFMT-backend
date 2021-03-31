@@ -29,7 +29,7 @@ def parse_request():
 def downloadFile ():
     #For windows you need to use drive name [ex: F:/Example.pdf]
     path = "test_afmt.xml"
-    return flask.send_file(path, as_attachment=True)
+    return flask.send_file(path, as_attachment=True, cache_timeout=0)
 
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=8080, cache_timeout=0)
+    app.run(host='0.0.0.0', port=8080)
