@@ -105,7 +105,7 @@ def parse_data(data):
             lmbda = float(1)/float(24 * int(this_node["meanTTA"]["value"]))
             # double lambda, int p, int a, int r, int id, bool Enable, double lambda1, int w1, int w2, int d, int possible, int detect_time, int repl_id,int p1,int p2
             # mttf, 1, fixedCOA, 2, , , mttf, detectionPerc,, fixedDMG, detection(bool 0/1), detectTime, detectionPerc(p1/p2)
-            attack_step = AttackStep(node["id"], this_node["Label"], lmbda, lmbda, int(this_node["fixedCOA"]["value"]), int(this_node["fixedDMG"]["value"]), int(this_node["enable"]["value"] == True), float(this_node["detectionPercent"]["value"]), int(this_node["detection"]["value"] == True), int(this_node["detectTime"]["value"])*24, int(this_node["repairCost"]["value"]),  int(this_node["repairTime"]["value"]), int(node["x"]))
+            attack_step = AttackStep(node["id"], this_node["Label"], lmbda, lmbda, int(this_node["fixedCOA"]["value"]), int(this_node["fixedDMG"]["value"]), int(this_node["enable"]["value"] == True), float(this_node["detectionPercent"]["value"]), int(this_node["detection"]["value"] == True), int(this_node["detectTime"]["value"])*24, int(this_node["repairCost"]["value"]),  int(this_node["repairTime"]["value"]) *24, int(node["x"]))
                 # int(this_node["inspectionCost"]["value"]),  int(this_node["repairTime"]["value"])*24
             database[nodeId] = attack_step
             # print(attack_step)
@@ -113,7 +113,7 @@ def parse_data(data):
             lmbda = float(1)/float(24 * int(this_node["meanTTF"]["value"]))
             # id, label, lamda, phases, thresholdPhase, failureProbability, inspectionInterval, inspectionCost, inspection, repairInterval, repairTime, repairCost, xCord
             accidental_step = AccidentalStep(node["id"], this_node["Label"], lmbda, int(this_node["noOfPhases"]["value"]),
-                int(this_node["thresholdPhase"]["value"]), int(this_node["failureProbability"]["value"]), int(this_node["repairTime"]["value"]), int(this_node["repairCost"]["value"]), int(node["x"]))
+                int(this_node["thresholdPhase"]["value"]), int(this_node["failureProbability"]["value"]), int(this_node["repairTime"]["value"])*24, int(this_node["repairCost"]["value"]), int(node["x"]))
                 # float(this_node["failureProbability"]["value"]), this_node["inspectionCost"]["value"], int(this_node["repairTime"]["value"])*24
             database[nodeId] = accidental_step
         elif(str(node["type"]).find("Gate") != -1):
@@ -198,7 +198,8 @@ def generateSysDecl():
             ret += "%s_%d = BE_repair(%d, %d, %d, %f, %d, %d, %d, %d);\n" % ('_'.join(acStep.label.split()), ac_id, ac_id, acStep.w1, acStep.w2, acStep.lamda, acStep.phases, acStep.thresholdPhase, replId, inspId)
             ret += "insp_%d = inspection(%d, %d, %d, %d, %d);\n" % (ac_id, inspId, replId, inspFreq, acStep.inspectionCost, preventive)
             print(acStep.w1, acStep.w2)
-            ret += "repl_%d = replacement(%d, %d, %d, %d, %d);\n" % (ac_id, replId, inspFreq, acStep.repairTime, acStep.repairCost, corrective)
+            #  interval given as 0
+            ret += "repl_%d = replacement(%d, %d, %d, %d, %d);\n" % (ac_id, replId, 0, acStep.repairTime, acStep.repairCost, corrective)
             ret += "failure_listener_%d = failure_listener(%d, %d);\n" % (ac_id, ac_id, replId)
             systemInstances += " %s_%d, insp_%d, repl_%d, failure_listener_%d," % ('_'.join(acStep.label.split()), ac_id, ac_id, ac_id, ac_id)
         elif isinstance(database[key], Gate):
@@ -265,42 +266,46 @@ def parseOutput(stdout):
                     end=index+1
             probability = line[start:end-1]
             prob_list = probability.split(',')
-            
-        if x==12:
-            index=-1
-            for ch in line:
-                index=index+1
-                if ch=='[' :
-                    start=index+1
-                if ch==']' :
-                    end=index+1
-            probability = line[start:end-1]
-            val_list = probability.split(',')          
-    
-            ind = line.find('=')
-            newstr = line[ind+1:]
-            end=ind
-            for i in newstr :
-                if i.isdigit() != True and i != '.' :
-                    break
-                else :
-                    end=end+1
-            
-            mean= line[ind+1:end+1]
-            ind = newstr.find('=')
-            newstr1 = newstr[ind+1:]
-            end=ind
-            for i in newstr1 :
-                if i.isdigit() != True and i != '.' :
-                    break
-                else :
-                    end=end+1
-            steps=newstr[ind+1:end+1] 
-            ind = line.find(':')
-            newstr = line[ind+1:-6]
-            cumprob = newstr.split()
+        try:    
+            if x==12:
+                index=-1
+                for ch in line:
+                    index=index+1
+                    if ch=='[' :
+                        start=index+1
+                    if ch==']' :
+                        end=index+1
+                probability = line[start:end-1]
+                val_list = probability.split(',')          
+        
+                ind = line.find('=')
+                newstr = line[ind+1:]
+                end=ind
+                for i in newstr :
+                    if i.isdigit() != True and i != '.' :
+                        break
+                    else :
+                        end=end+1
+                
+                mean= line[ind+1:end+1]
+                ind = newstr.find('=')
+                newstr1 = newstr[ind+1:]
+                end=ind
+                for i in newstr1 :
+                    if i.isdigit() != True and i != '.' :
+                        break
+                    else :
+                        end=end+1
+                steps=newstr[ind+1:end+1] 
+                ind = line.find(':')
+                newstr = line[ind+1:-6]
+                cumprob = newstr.split()
+        except:
+            return prob_list, None, None
 
     length =  len(cumprob)
+    if (length == 0):
+        return prob_list, None, None
     cumprob[0]=float(cumprob[0]) + 0.0
     for i in range(1, length) :
         cumprob[i]=float(cumprob[i]) + float(cumprob[i-1])
@@ -331,7 +336,7 @@ def tool_main(data):
                                stdout=subprocess.PIPE, stderr=subprocess.PIPE, stdin=subprocess.PIPE)
         # For Windows # , creationflags=CREATE_NEW_CONSOLE
     except Exception as e:
-        print("Syntax/value error, unable to parse the graph")
+        print("Syntax/value error in the graph, unable to parse the input")
         return json.dumps({"Message": str(e.__class__) + str(e.__str__)}), 500, "", "", ""
 
     out = pid.stdout.read()
@@ -341,13 +346,20 @@ def tool_main(data):
     try:
         probList, x_cord, y_cord = parseOutput(out)
         # response = json.dumps([{'probCdfX':x_cord}, {'probCdfY':y_cord},{'probValList':[float(probList[0]), float(probList[1])]}], indent=True)
-        return response, response_code, probList, x_cord, y_cord
-    except:
-        resp = "Syntax/value out of bound error, unable to parse verifyta output - " + \
-            str(pid.stderr.read().split(b'\n')[-1])
-        print("Syntax/value out of bound error, unable to parse verifyta output")
-        response_code = 501
+        if x_cord is not None:
+            return response, response_code, probList, x_cord, y_cord
+        resp = ""
+        if float(probList[0]) == 0:
+            resp = "Top event can not be realised as it is highly improbable with the given tree values \n Try tweaking the values or making the tree more expressive"
+        else:
+            resp = "Top event will be realised with very high probabilty with the given tree values \n Try tweaking the values or making the tree less expressive"
         response = json.dumps({"Message": resp})
+    except Exception as e:
+        resp = "Syntax/value out of bound error, unable to parse verifyta output - " + \
+            str(pid.stderr.read().split(b'\n'))
+        print("Syntax/value out of bound error, unable to parse verifyta output")
+        response = json.dumps({"Message": resp})
+    response_code = 501
     return response, response_code, "", "", ""
     # print(response)
 
