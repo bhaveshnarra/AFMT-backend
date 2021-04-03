@@ -337,7 +337,7 @@ def tool_main(data):
         # For Windows # , creationflags=CREATE_NEW_CONSOLE
     except Exception as e:
         print("Syntax/value error in the graph, unable to parse the input")
-        return json.dumps({"Message": str(e.__class__) + str(e.__str__)}), 500, "", "", ""
+        return json.dumps({"Message": str(e.__class__) + "\n console error - " + str(pid.stderr}), 500, "", "", ""
 
     out = pid.stdout.read()
     out = out.split(b'\n')
