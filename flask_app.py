@@ -27,7 +27,6 @@ def parse_request():
 @app.route('/downloadgeneratedafmtxml', methods=['GET'])
 @cross_origin()
 def downloadFile ():
-    #For windows you need to use drive name [ex: F:/Example.pdf]
     path = "test_afmt.xml"
     return flask.send_file(path, as_attachment=True, cache_timeout=0)
 

@@ -92,13 +92,13 @@ def parse_data(data):
     # print(query_node.attrib, query_node.text)
     global max_id
     graph_data = data
-    print("\nPrinting begins --- ")
+    # print("\nPrinting begins --- ")
     # Get data for all the nodes
     node_id_counter = 0
     for node in graph_data:
-        print()
-        print(node)
-        print()
+        # print()
+        # print(node)
+        # print()
         this_node = node["userData"]
         nodeId = node["id"]
         if(node["type"] == "ATTACK EVENT"):
@@ -197,7 +197,7 @@ def generateSysDecl():
             inspId = getNewId()
             ret += "%s_%d = BE_repair(%d, %d, %d, %f, %d, %d, %d, %d);\n" % ('_'.join(acStep.label.split()), ac_id, ac_id, acStep.w1, acStep.w2, acStep.lamda, acStep.phases, acStep.thresholdPhase, replId, inspId)
             ret += "insp_%d = inspection(%d, %d, %d, %d, %d);\n" % (ac_id, inspId, replId, inspFreq, acStep.inspectionCost, preventive)
-            print(acStep.w1, acStep.w2)
+            # print(acStep.w1, acStep.w2)
             #  interval given as 0
             ret += "repl_%d = replacement(%d, %d, %d, %d, %d);\n" % (ac_id, replId, 0, acStep.repairTime, acStep.repairCost, corrective)
             ret += "failure_listener_%d = failure_listener(%d, %d);\n" % (ac_id, ac_id, replId)
@@ -247,7 +247,7 @@ def parseOutput(stdout):
 
     for line in stdout:
         line = str(line)
-        print(line)
+        # print(line)
         x=x+1
         if x==10 :  
             #print(line)
@@ -327,6 +327,7 @@ def tool_main(data):
     global id_map, database
     id_map.clear()
     database.clear()
+    errMessPref = "Syntax/value error in the graph, unable to parse the input."
     try:
         parse_data(data)
         sysDeclaration = generateSysDecl()
@@ -335,9 +336,12 @@ def tool_main(data):
         pid = subprocess.Popen('./verifyta -O std test_afmt.xml', shell=True,
                                stdout=subprocess.PIPE, stderr=subprocess.PIPE, stdin=subprocess.PIPE)
         # For Windows # , creationflags=CREATE_NEW_CONSOLE
+    except ZeroDivisionError as e:
+        print(e.with_traceback)
+        return json.dumps({"Message": errMessPref + " Inspection Frequency can't be zero."}), 501, "", "", ""
     except Exception as e:
-        print("Syntax/value error in the graph, unable to parse the input")
-        return json.dumps({"Message": str(e.__class__) + str(e)}), 500, "", "", ""
+        return json.dumps({"Message": errMessPref + str(e.__class__) + str(e)}), 501, "", "", ""
+    
 
     out = pid.stdout.read()
     out = out.split(b'\n')
@@ -359,7 +363,7 @@ def tool_main(data):
             str(pid.stderr.read().split(b'\n'))
         print("Syntax/value out of bound error, unable to parse verifyta output")
         response = json.dumps({"Message": resp})
-    response_code = 501
+    response_code = 502
     return response, response_code, "", "", ""
     # print(response)
 
