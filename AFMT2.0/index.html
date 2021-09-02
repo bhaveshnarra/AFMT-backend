@@ -1,0 +1,409 @@
+<html xmlns:v="urn:schemas-microsoft-com:vml" xmlns:o="urn:schemas-microsoft-com:office:office" style="overflow: hidden;">
+
+<head>
+    <title></title>
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="viewport" content="width=device-width, minimum-scale=1.0" />
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+
+    <link type="text/css" rel="stylesheet" href="./css/slider.css" />
+    <link type="text/css" rel="stylesheet" href="./css/style.css" />
+    <link rel="preconnect" href="https://fonts.gstatic.com">
+    <!-- CSS only -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.0.0-beta2/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-BmbxuPwQa2lc/FVzBcNJ7UAyJxM6wuqIj61tLrc4wSX0szH/Ev+nYRRuWlolflfl" crossorigin="anonymous">
+    <link href="https://fonts.googleapis.com/css2?family=Source+Sans+Pro&display=swap" rel="stylesheet">
+    <script src="./lib/jquery.js"></script>
+    <script src="./lib/jquery-ui.js"></script>
+    <script src="./js/jquery.browser.js"></script>
+    <!-- JavaScript Bundle with Popper -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.0.0-beta2/dist/js/bootstrap.bundle.min.js" integrity="sha384-b5kHyXgcpbZJO/tY9Ul7kGkf1S0CWuKcCD38l8YkeH8z8QjE0GmW1gYU5S9FOnJ0" crossorigin="anonymous"></script>
+    <script src="./js/rangeslider.js"></script>
+    <script src="./draw2d.js"></script>
+    <script src="./js/OR.js"></script>
+    <script src="./js/AND.js"></script>
+    <script src="./js/SAND.js"></script>
+    <script src="./js/TOPEVENT.js"></script>
+    <script src="./js/ATTACKEVENT.JS"></script>
+    <script src="./js/FAILUREEVENT.js"></script>
+    <script src="./js/DecoratedInputPort.js"></script>
+    <script src="./js/MarkerStateAFigure.js"></script>
+    <script src="./js/MarkerStateBFigure.js"></script>
+    <script src="./js/MarkerFigure.js"></script>
+    <script src="./js/view.js"></script>
+    <script src="./js/SelectionMenuPolicy.js"></script>
+    <script src="./js/propertypane.js"></script>
+    <script src="https://d3js.org/d3.v5.min.js"></script>
+    <script src="./js/PARSER.js"></script>
+    <script>
+        function openNav() {
+            document.getElementById("stepBar").style.width = "150px";
+            // document.getElementById("main").style.marginLeft = "250px";
+        }
+
+        function closeNav() {
+            document.getElementById("stepBar").style.width = "0";
+            // document.getElementById("main").style.marginLeft = "0";
+        }
+
+        function openPropNav() {
+            document.getElementById("propbar").style.width = "300px";
+            // document.getElementById("main").style.marginLeft = "250px";
+        }
+
+        function closePropNav() {
+            document.getElementById("propbar").style.width = "0";
+            // document.getElementById("main").style.marginLeft = "0";
+        }
+    </script>
+    <!-- <script src='https://cdn.plot.ly/plotly-latest.min.js'></script> -->
+    <script type="text/javascript">
+        var textFigure = null;
+        var canvas = null;
+        var label = null;
+        var line = null;
+        var circle = null;
+
+
+        document.addEventListener("DOMContentLoaded", function() {
+
+
+            rangeSlider();
+            let createConnection = function() {
+                let con = new draw2d.Connection();
+                con.setRouter(new draw2d.layout.connection.CircuitConnectionRouter());
+                return con;
+            };
+            canvas = new View("gfx_holder");
+            canvas.installEditPolicy(new draw2d.policy.canvas.FadeoutDecorationPolicy());
+            canvas.installEditPolicy(new draw2d.policy.connection.DragConnectionCreatePolicy({
+                createConnection: createConnection
+            }));
+            canvas.installEditPolicy(new draw2d.policy.canvas.WheelZoomPolicy());
+            canvas.setScrollArea("gfx_holder");
+            canvas.installEditPolicy(new draw2d.policy.canvas.SnapToGridEditPolicy())
+            properties = new PropertyPane("properties", canvas);
+
+            // parser(object, canvas, draw2d);
+
+
+            var reader = new draw2d.io.json.Reader();
+
+
+            displayJSON(canvas);
+
+
+            canvas.getCommandStack().addEventListener(function(e) {
+                // if (e.isPostChangeEvent()) {
+                displayJSON(canvas);
+
+                // }
+            });
+
+            $('#attackTreeDataSubmit').click(function() {
+                parser(JSON.parse($('#attackTreeData').val()), canvas, draw2d);
+            });
+
+            $('#pollutiontree').click(function() {
+                parser(pollutionTree, canvas, draw2d);
+            });
+
+            $("#runButton").click(function() {
+                var writer = new draw2d.io.json.Writer();
+                var tree = {}
+                writer.marshal(canvas, function(json) {
+                    tree = JSON.stringify(json, null, 2);
+                });
+                console.log(tree);
+                $("#plot").empty();
+                fetch("/", {
+                        headers: {
+                            'Accept': 'application/json',
+                            'Content-Type': 'application/json'
+                        },
+                        method: "POST",
+                        body: tree
+                    })
+                    .then(response => response.json())
+                    .then(data => {
+                        let x = data[0]['probCdfX'];
+                        let y = data[1]['probCdfY'];
+
+                        var margin = {
+                                top: 50,
+                                right: 50,
+                                bottom: 50,
+                                left: 50
+                            },
+                            width = $("#plot").innerWidth() - margin.left - margin.right // Use the window's width 
+                            ,
+                            height = $("#plot").innerHeight() - margin.top - margin.bottom; // Use the window's height
+
+                        // The number of datapoints
+                        var n = x.length;
+
+                        // 5. X scale will use the index of our data
+                        var xScale = d3.scaleLinear()
+                            .domain([0, Math.max(...x)]) // input
+                            .range([0, width]); // output
+
+                        // 6. Y scale will use the randomly generate number 
+                        var yScale = d3.scaleLinear()
+                            .domain([0, Math.max(...y)]) // input 
+                            .range([height, 0]); // output 
+
+                        // 7. d3's line generator
+                        var line = d3.line()
+                            .x(function(d, i) {
+                                return xScale(d.x);
+                            }) // set the x values for the line generator
+                            .y(function(d) {
+                                return yScale(d.y);
+                            }) // set the y values for the line generator 
+                            .curve(d3.curveMonotoneX) // apply smoothing to the line
+
+                        // 8. An array of objects of length N. Each object has key -> value pair, the key being "y" and the value is a random number
+                        var dataset = d3.range(n).map(function(d) {
+                            console.log(d, x[d], y[d], Math.max(...y));
+                            return {
+                                "x": x[d],
+                                "y": y[d]
+                            }
+                        })
+                        $("#runModalLabel").html("Probability of realizing the top node in a mission time of 1 year " + data[2]['probValList']);
+                        // 1. Add the SVG to the page and employ #2
+                        var svg = d3.select("#plot").append("svg")
+                            .attr("width", width + margin.left + margin.right)
+                            .attr("height", height + margin.top + margin.bottom)
+                            .append("g")
+                            .attr("transform", "translate(" + margin.left + "," + margin.top + ")");
+
+                        // 3. Call the x axis in a group tag
+                        svg.append("g")
+                            .attr("class", "x axis")
+                            .attr("transform", "translate(0," + height + ")")
+                            .call(d3.axisBottom(xScale)); // Create an axis component with d3.axisBottom
+
+                        // 4. Call the y axis in a group tag
+                        svg.append("g")
+                            .attr("class", "y axis")
+                            .call(d3.axisLeft(yScale)); // Create an axis component with d3.axisLeft
+
+                        // 9. Append the path, bind the data, and call the line generator 
+                        svg.append("path")
+                            .datum(dataset) // 10. Binds data to the line 
+                            .attr("class", "line") // Assign a class for styling 
+                            .attr("d", line); // 11. Calls the line generator 
+
+                        // 12. Appends a circle for each datapoint 
+                        svg.selectAll(".dot")
+                            .data(dataset)
+                            .enter().append("circle") // Uses the enter().append() method
+                            .attr("class", "dot") // Assign a class for styling
+                            .attr("cx", function(d, i) {
+                                return xScale(d.x)
+                            })
+                            .attr("cy", function(d) {
+                                return yScale(d.y)
+                            })
+                            .attr("r", 3)
+                            .on("mouseover", function(a, b, c) {
+                                console.log(a)
+                                this.attr('class', 'focus')
+                            })
+                            .on("mouseout", function() {})
+
+
+                        svg.append("text")
+                            .attr("transform",
+                                "translate(" + (width / 2) + " ," +
+                                (height + margin.top - 10) + ")")
+                            .style("text-anchor", "middle")
+                            .text("Time (in Days)");
+
+                        svg.append("text")
+                            .attr("transform",
+                                "translate(" + (width / 2) + " ," +
+                                (margin.top - 15) + ")")
+                            .style("text-anchor", "middle")
+                            .text("Cummulative Probability Distribution");
+
+                        svg.append("text")
+                            .attr("transform", "rotate(-90)")
+                            .attr("y", 0 - margin.left)
+                            .attr("x", 0 - (height / 2))
+                            .attr("dy", "1em")
+                            .style("text-anchor", "middle")
+                            .text("Probability");
+                    })
+                    .catch(function(res) {
+
+
+                        // console.log(res.json())
+                        // $("#plot").html("<div class=\"alert alert-danger\" role=\"alert\">" + res + " </div>");
+                    })
+
+
+            });
+        });
+
+        function displayJSON(canvas) {
+            var writer = new draw2d.io.json.Writer();
+            writer.marshal(canvas, function(json) {
+                $("#json").text(JSON.stringify(json, null, 2));
+                var data = "text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(json, null, 2));
+                $('#dwn').attr("href", "data:" + data + "");
+                $('#dwn').attr("download", "data.json");
+                $('#dwn').attr("aria-disabled", "false");
+
+                // $('<a href="data:' + data + '" download="data.json"></a>').appendTo('#dwn');
+            });
+
+        }
+    </script>
+
+</head>
+
+<body style="overflow-y: hidden;" id="cursortooltip">
+
+    <div style="width: 100%;height: 100%;">
+        <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+            <div class="container-fluid">
+                <a class="navbar-brand" href="#">PAST</a>
+                <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNavDarkDropdown" aria-controls="navbarNavDarkDropdown" aria-expanded="false" aria-label="Toggle navigation">
+                <span class="navbar-toggler-icon"></span>
+              </button>
+                <!-- <div class="collapse navbar-collapse" id="navbarNavDarkDropdown">
+                    <ul class="navbar-nav">
+                        <li class="nav-item dropdown">
+                            <a class="nav-link dropdown-toggle" href="#" id="navbarDarkDropdownMenuLink" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                      Nodes
+                    </a>
+                            <ul class="dropdown-menu dropdown-menu-dark" aria-labelledby="navbarDarkDropdownMenuLink" id="steps">
+                                <li><a class="dropdown-item" href="#" onclick="stepMap('OR');">OR(Q)</a></li>
+                                <li><a class="dropdown-item" href="#" onclick="stepMap('AND');">AND(W)</a></li>
+                                <li><a class="dropdown-item" href="#" onclick="stepMap('SAN');">SAND(E)</a></li>
+                                <li><a class="dropdown-item" href="#" onclick="stepMap('TOP');">Top Event(R)</a></li>
+                                <li><a class="dropdown-item" href="#" onclick="stepMap('ATK');">Attack Event(T)</a></li>
+                                <li><a class="dropdown-item" href="#" onclick="stepMap('FAI');">Failure Event(Y)</a></li>
+                            </ul>
+                        </li>
+                    </ul>
+                </div> -->
+
+                <div class="collapse navbar-collapse" id="navbarNavDarkDropdown">
+                    <ul class="navbar-nav">
+                        <li class="nav-item dropdown">
+                            <a class="nav-link dropdown-toggle" href="#" id="navbarDarkDropdownMenuLink" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                      Example Trees
+                    </a>
+                            <ul class="dropdown-menu dropdown-menu-dark" aria-labelledby="navbarDarkDropdownMenuLink" id="steps">
+                                <li><a class="dropdown-item" href="#" id="pollutiontree">Pollution Tree</a></li>
+
+                            </ul>
+                        </li>
+                    </ul>
+                </div>
+                <button class="btn btn-secondary" onclick="openNav()" style="margin-left: 10px;">Add Nodes</button>
+                <!-- <button class="btn btn-secondary" onclick="openPropNav()" style="margin-left: 10px;">Edit Properties</button> -->
+                <button type="button" class="btn btn-secondary" style="margin-left: 10px;" data-bs-toggle="modal" data-bs-target="#uploadAttackTree"> Upload Attack Tree </button>
+                <!-- Modal -->
+                <div class="modal fade" id="uploadAttackTree" tabindex="-1" aria-labelledby="uploadAttackTreeLabel" aria-hidden="true">
+                    <div class="modal-dialog">
+                        <div class="modal-content">
+                            <div class="modal-header">
+                                <h5 class="modal-title" id="uploadAttackTreeLabel">Upload Attack Tree</h5>
+                                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                            </div>
+                            <div class="modal-body">
+                                <textarea class="form-control" id="attackTreeData" rows="8"></textarea>
+                                <button type="button" class="btn btn-secondary" id="attackTreeDataSubmit">Upload</button>
+                            </div>
+                            <div class="modal-footer">
+                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <a type="button" class="btn btn-secondary" style="margin-left: 10px;" id="dwn" aria-disabled="true"> Download Attack Tree </a>
+                <button type="button" id="runButton" style="margin-left: 10px;" class="btn btn-secondary" data-bs-toggle="modal" data-bs-target="#runModal"> Run </button>
+                <!-- Modal -->
+                <div class="modal fade" id="runModal" tabindex="-1" aria-labelledby="runModalLabel" aria-hidden="true">
+                    <div class="modal-dialog">
+                        <div class="modal-content" style="min-width: 800px;padding: 10px;">
+                            <div class="modal-header">
+                                <h5 class="modal-title" id="runModalLabel">Results(Probability of realizing the top node in a mission time of 1 year)</h5>
+                                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                            </div>
+                            <div class="modal-body" id="plot" style="height: 600px;">
+
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <!-- Button trigger modal -->
+                <button type="button" style="margin-left: 10px;" class="btn btn-secondary" data-bs-toggle="modal" data-bs-target="#aboutModal"> About </button>
+
+                <!-- Modal -->
+                <div class="modal fade" id="aboutModal" tabindex="-1" aria-labelledby="aboutModalLabel" aria-hidden="true">
+                    <div class="modal-dialog">
+                        <div class="modal-content">
+                            <div class="modal-header">
+                                <h5 class="modal-title" id="aboutModalLabel">About</h5>
+                                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                            </div>
+                            <div class="modal-body">
+                                ...
+                            </div>
+                            <div class="modal-footer">
+                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Button trigger modal -->
+                <button type="button" class="btn btn-secondary" data-bs-toggle="modal" data-bs-target="#infoModal" style="margin-left: 10px;"> Documentation </button>
+
+                <!-- Modal -->
+                <div class="modal fade" id="infoModal" tabindex="-1" aria-labelledby="infoModalLabel" aria-hidden="true">
+                    <div class="modal-dialog">
+                        <div class="modal-content">
+                            <div class="modal-header">
+                                <h5 class="modal-title" id="infoModalLabel">Documentation</h5>
+                                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                            </div>
+                            <div class="modal-body">
+                                ...
+                            </div>
+                            <div class="modal-footer">
+                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </nav>
+        <div onselectstart="javascript:/*IE8 hack*/return false" id="gfx_holder" style="width:100vw; height:100vh;">
+        </div>
+        <div style="width: 0px;   height: 100%;  right: 0; z-index: 1000;   top: 0;  overflow-y:scroll; position: absolute;  background: white;border-left: 4px solid #2c3e50;" id="propbar">
+            <a href="javascript:void(0)" class="closePropbtn" onclick="closePropNav()">X</a>
+            <div id="propertybar"></div>
+        </div>
+
+        <div id="stepBar" style="width: 0px;   height: 100%;  left: 0; z-index: 1000;   top: 0;  position: absolute; overflow-y:scroll; background: white;border-right: 4px solid #2c3e50;">
+            <a href="javascript:void(0)" class="closebtn" onclick="closeNav()">X</a>
+            <div data-shape="ATK" class="palette_node_element draw2d_droppable" title="drag&amp;drop the table into the canvas..">ATTACK EVENT</div>
+            <div data-shape="FAI" class="palette_node_element draw2d_droppable" title="drag&amp;drop the table into the canvas..">FAILURE EVENT</div>
+            <div data-shape="OR" class="palette_node_element draw2d_droppable" title="drag&amp;drop the table into the canvas..">OR GATE</div>
+            <div data-shape="AND" class="palette_node_element draw2d_droppable" title="drag&amp;drop the table into the canvas..">AND GATE</div>
+            <div data-shape="SAND" class="palette_node_element draw2d_droppable" title="drag&amp;drop the table into the canvas..">SAND GATE</div>
+            <div data-shape="TOP" class="palette_node_element draw2d_droppable" title="drag&amp;drop the table into the canvas..">TOP EVENT AND INSPECTION FREQUENCY</div>
+            <!-- <div data-shape="ATTACKEVENT" class="palette_node_element draw2d_droppable" title="drag&amp;drop the table into the canvas..">ATTACK EVENT</div> -->
+        </div>
+    </div>
+
+    <!-- <pre id="json" style="overflow:auto;position:absolute; bottom:10px; ;left:10px; width:450; height:500;background:white;border:1px solid gray"> -->
+    <!-- </pre> -->
+</body>
+
+</html>
